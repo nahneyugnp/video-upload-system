@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang='vi'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Upload Video - VideoHub</title>
+  <link rel='stylesheet' href='css/style.css'>
+</head>
+<body>
+  <nav class='navbar'>
+    <a href='/' class='nav-brand'>&#9654; VideoHub</a>
+  </nav>
+ 
+  <main class='container' style='max-width:640px'>
+    <h2 class='section-title'>Upload Video Moi</h2>
+ 
+    <div id='dropZone' class='drop-zone'>
+      <div class='drop-icon'>&#127910;</div>
+      <p>Keo tha video vao day</p>
+      <p>hoac <label for='fileInput' class='link'>chon file tu may tinh</label></p>
+      <p class='drop-hint'>Ho tro: MP4, AVI, MOV, MKV, WEBM - Toi da 500MB</p>
+      <input type='file' id='fileInput' accept='video/*' hidden>
+    </div>
+ 
+    <div id='fileInfo' class='file-info' hidden></div>
+ 
+    <div class='form-group'>
+      <label>Tieu de video *</label>
+      <input type='text' id='titleInput' placeholder='Nhap tieu de...' maxlength='255'>
+    </div>
+ 
+    <div class='form-group'>
+      <label>Mo ta (tuy chon)</label>
+      <textarea id='descInput' placeholder='Mo ta noi dung video...' rows='3'></textarea>
+    </div>
+ 
+    <div id='progressWrap' hidden>
+      <div class='progress-track'>
+        <div id='progressFill' class='progress-fill'></div>
+      </div>
+      <div class='progress-info'>
+        <span id='progressPct'>0%</span>
+        <span id='progressSpeed'></span>
+        <span id='progressEta'></span>
+      </div>
+    </div>
+ 
+    <button id='uploadBtn' class='btn btn-primary btn-block'>Upload Video</button>
+    <div id='statusMsg' class='status-msg' hidden></div>
+  </main>
+ 
+  <script src='js/upload.js'></script>
+</body>
+</html>

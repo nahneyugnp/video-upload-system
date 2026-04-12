@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang='vi'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Xem Video - VideoHub</title>
+  <link rel='stylesheet' href='css/style.css'>
+</head>
+<body>
+  <nav class='navbar'>
+    <a href='/' class='nav-brand'>&#9654; VideoHub</a>
+  </nav>
+ 
+  <main class='container'>
+    <div class='watch-layout'>
+      <div class='player-section'>
+        <div id='playerWrap' class='player-wrap'>
+          <video id='videoPlayer' controls preload='metadata'>
+            Trinh duyet cua ban khong ho tro HTML5 video.
+          </video>
+        </div>
+        <div id='videoMeta' class='video-meta'>
+          <h1 id='videoTitle' class='video-title'>Dang tai...</h1>
+          <div class='meta-row'>
+            <span id='videoViews'></span>
+            <span id='videoDate'></span>
+          </div>
+          <p id='videoDesc' class='video-desc'></p>
+        </div>
+      </div>
+    </div>
+  </main>
+ 
+  <script>
+    const params  = new URLSearchParams(location.search);
+    const videoId = params.get('id');
+ 
+    if (!videoId) {
+      document.body.innerHTML = '<p style="padding:40px;color:#fff">Khong tim thay video. <a href="/">Quay lai trang chu</a></p>';
+    } else {
+      fetch('/api/videos/detail.php?id=' + videoId)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.success) throw new Error(data.message);
+          const v = data.video;
+          document.title = v.title + ' - VideoHub';
+          document.getElementById('videoTitle').textContent = v.title;
+          document.getElementById('videoViews').textContent = Number(v.views).toLocaleString() + ' luot xem';
+          document.getElementById('videoDate').textContent = new Date(v.created_at).toLocaleDateString('vi-VN');
+          document.getElementById('videoDesc').textContent = v.description || '';
+          const player = document.getElementById('videoPlayer');
+          player.src = '/api/videos/stream.php?id=' + videoId;
+          if (v.thumbnail_path) player.poster = '/' + v.thumbnail_path;
+        })
+        .catch(err => {
+          document.getElementById('videoTitle').textContent = 'Loi: ' + err.message;
+        });
+    }
+  </script>
+</body>
+</html>

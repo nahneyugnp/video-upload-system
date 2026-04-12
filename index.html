@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang='vi'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>VideoHub</title>
+  <link rel='stylesheet' href='frontend/css/style.css'>
+</head>
+<body>
+  <nav class='navbar'>
+    <a href='/' class='nav-brand'>&#9654; VideoHub</a>
+    <div class='nav-right'>
+      <a href='frontend/upload.html' class='btn btn-primary'>+ Upload Video</a>
+    </div>
+  </nav>
+ 
+  <main class='container'>
+    <h2 class='section-title'>Video moi nhat</h2>
+    <div id='videoGrid' class='video-grid'>
+      <p class='loading-text'>Dang tai danh sach video...</p>
+    </div>
+    <div id='pagination' class='pagination'></div>
+  </main>
+ 
+  <script>
+    let currentPage = 1;
+ 
+    function formatDuration(s) {
+      if (!s) return '0:00';
+      const m = Math.floor(s / 60), sec = s % 60;
+      return m + ':' + String(sec).padStart(2, '0');
+    }
+    function timeAgo(dateStr) {
+      const diff = (Date.now() - new Date(dateStr)) / 1000;
+      if (diff < 60) return 'Vua xong';
+      if (diff < 3600) return Math.floor(diff/60) + ' phut truoc';
+      if (diff < 86400) return Math.floor(diff/3600) + ' gio truoc';
+      return Math.floor(diff/86400) + ' ngay truoc';
+    }
+ 
+    async function loadVideos(page = 1) {
+      try {
+        const res = await fetch('/api/videos/list.php?page=' + page + '&limit=12');
+        const data = await res.json();
+        const grid = document.getElementById('videoGrid');
+ 
+        if (!data.success || data.videos.length === 0) {
+          grid.innerHTML = '<p class="empty-text">Chua co video nao. <a href="frontend/upload.html">Upload ngay!</a></p>';
+          return;
+        }
+ 
+        grid.innerHTML = data.videos.map(v => `
+          <div class='video-card' onclick="location.href='frontend/watch.html?id=${v.id}'">
+            <div class='thumbnail-wrap'>
+              <img src='${v.thumbnail_path ? '/' + v.thumbnail_path : ''}' 
+                   onerror="this.parentElement.style.background='#333'" alt='${v.title}'>
+              <span class='duration-badge'>${formatDuration(v.duration)}</span>
+            </div>
+            <div class='card-info'>
+              <h3 class='card-title'>${v.title}</h3>
+              <p class='card-meta'>${Number(v.views).toLocaleString()} luot xem &bull; ${timeAgo(v.created_at)}</p>
+            </div>
+          </div>
+        `).join('');
+ 
+        // Phan trang
+        const pg = document.getElementById('pagination');
+        pg.innerHTML = '';
+        for (let i = 1; i <= data.total_pages; i++) {
+          pg.innerHTML += `<button class='page-btn ${i===page?"active":""}' onclick='loadVideos(${i})'>${i}</button>`;
+        }
+        currentPage = page;
+      } catch (err) {
+        document.getElementById('videoGrid').innerHTML = '<p class="error-text">Loi tai video: ' + err.message + '</p>';
+      }
+    }
+    loadVideos();
+  </script>
+</body>
+</html>
