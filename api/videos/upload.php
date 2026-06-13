@@ -1,78 +1,65 @@
 <?php
-// File: api/videos/upload.php
-session_start();
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../config/constants.php';
-require_once __DIR__ . '/../config/helper.php';
- 
-requireMethod('POST');
- 
-// Kiem tra file co duoc gui len khong
-if (!isset($_FILES['video']) || $_FILES['video']['error'] !== UPLOAD_ERR_OK) {
-    $errMap = [1=>'File qua lon (PHP)',2=>'File qua lon (Form)',
-               3=>'Chi upload duoc 1 phan',4=>'Khong co file'];
-    $errCode = $_FILES['video']['error'] ?? 4;
-    jsonResponse(false, $errMap[$errCode] ?? 'Loi upload khong xac dinh', [], 400);
+/* ==========================================================================
+   API: UPLOAD VIDEO & KÍCH HOẠT WORKER
+   ========================================================================== */
+require_once __DIR__ . "/../config/db.php";
+require_once __DIR__ . "/../config/constants.php";
+require_once __DIR__ . "/../config/helper.php";
+
+method("POST");
+
+// 1. Kiểm tra File
+if (!isset($_FILES["video"]) || $_FILES["video"]["error"] !== UPLOAD_ERR_OK) {
+    $errMap = [
+        1 => "File too large (exceeds php.ini limit)",
+        2 => "File too large (exceeds HTML form limit)",
+        3 => "Partial upload error",
+        4 => "No file selected",
+    ];
+    $code = $_FILES["video"]["error"] ?? 4;
+    json(false, $errMap[$code] ?? "Upload error $code", [], 400);
 }
- 
-$file  = $_FILES['video'];
-$title = trim($_POST['title'] ?? '');
-$desc  = trim($_POST['description'] ?? '');
- 
-if (empty($title)) jsonResponse(false, 'Thieu tieu de video', [], 400);
- 
-// Kiem tra kich thuoc
-if ($file['size'] > MAX_FILE_SIZE) {
-    jsonResponse(false, 'File qua lon. Toi da 500MB.', [], 413);
+
+$f = $_FILES["video"];
+$title = trim($_POST["title"] ?? "");
+$desc  = trim($_POST["description"] ?? "");
+
+if (!$title) json(false, "Title is required", [], 400);
+if ($f["size"] > MAX_BYTES) json(false, "File exceeds 500MB limit", [], 413);
+
+// 2. Kiểm tra định dạng (MIME)
+$mime = (new finfo(FILEINFO_MIME_TYPE))->file($f["tmp_name"]);
+if (!in_array($mime, ALLOWED_MIME)) {
+    json(false, "Unsupported format: $mime", [], 415);
 }
- 
-// Kiem tra MIME type thuc su (khong tin vao ten file)
-$finfo    = new finfo(FILEINFO_MIME_TYPE);
-$mimeType = $finfo->file($file['tmp_name']);
-if (!in_array($mimeType, ALLOWED_MIME)) {
-    jsonResponse(false, 'Dinh dang khong ho tro: ' . $mimeType, [], 415);
+
+// 3. Lưu file
+$base   = uniqid("v_", true);
+$ext    = strtolower(pathinfo($f["name"], PATHINFO_EXTENSION));
+$stored = $base . "." . $ext;
+$path   = DIR_ORIG . $stored;
+
+if (!move_uploaded_file($f["tmp_name"], $path)) {
+    json(false, "Failed to save file. Check permissions.", [], 500);
 }
- 
-// Tao ten file duy nhat de tranh trung lap
-$ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-$baseName = uniqid('vid_', true);
-$origFile = $baseName . '.' . $ext;
-$origPath = UPLOAD_DIR_ORIGINAL . $origFile;
- 
-// Chuyen file tu thu muc tam sang thu muc cua minh
-if (!move_uploaded_file($file['tmp_name'], $origPath)) {
-    jsonResponse(false, 'Khong the luu file. Kiem tra quyen thu muc uploads/', [], 500);
-}
- 
-// Ghi vao database
-$pdo  = getDB();
-$stmt = $pdo->prepare(
-    'INSERT INTO videos (user_id, title, description, original_path, file_size, status)
-     VALUES (:uid, :title, :desc, :path, :size, "processing")'
-);
-$stmt->execute([
-    ':uid'   => $_SESSION['user_id'] ?? 1,
-    ':title' => htmlspecialchars($title),
-    ':desc'  => htmlspecialchars($desc),
-    ':path'  => 'uploads/original/' . $origFile,
-    ':size'  => $file['size'],
-]);
-$videoId = (int)$pdo->lastInsertId();
- 
-// Ghi log thoi diem bat dau upload
+
+// 4. Ghi Database & Log
+$pdo = db();
 $pdo->prepare(
-    'INSERT INTO upload_logs (video_id, start_time, file_size, status, ip_address)
-     VALUES (?, NOW(), ?, "uploaded", ?)'
-)->execute([$videoId, $file['size'], $_SERVER['REMOTE_ADDR'] ?? '']);
- 
-// Goi worker FFmpeg chay nen (khong cho ket qua, tra ve ngay)
-$workerScript = '/var/www/videohub/workers/process_video.php';
-$logFile = '/tmp/ffmpeg_' . $videoId . '.log';
-$cmd = PHP_BINARY . ' ' . escapeshellarg($workerScript)
-     . ' ' . escapeshellarg((string)$videoId)
-     . ' ' . escapeshellarg($origPath)
-     . ' > ' . escapeshellarg($logFile) . ' 2>&1 &';
+    "INSERT INTO videos (title, description, original_path, file_size, status) VALUES (?, ?, ?, ?, 'processing')"
+)->execute([htmlspecialchars($title), htmlspecialchars($desc), "uploads/original/" . $stored, $f["size"]]);
+$videoId = (int)$pdo->lastInsertId();
+
+$pdo->prepare(
+    "INSERT INTO upload_logs (video_id, start_time, file_size, status, ip) VALUES (?, NOW(), ?, 'uploaded', ?)"
+)->execute([$videoId, $f["size"], $_SERVER["REMOTE_ADDR"] ?? ""]);
+
+// 5. Khởi chạy Worker nền (Non-blocking)
+$worker  = ROOT . "/workers/process.php";
+$logFile = sys_get_temp_dir() . "/ffmpeg_{$videoId}.log";
+
+$cmd = "/usr/bin/php " . escapeshellarg($worker) . " " . (string)$videoId
+     . " " . escapeshellarg($path) . " > " . escapeshellarg($logFile) . " 2>&1 &";
 exec($cmd);
- 
-jsonResponse(true, 'Upload thanh cong! Dang xu ly video...', ['video_id' => $videoId]);
-?>
+
+json(true, "Upload successful, processing...", ["video_id" => $videoId]);
