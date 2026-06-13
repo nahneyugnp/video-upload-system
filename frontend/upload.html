@@ -1,54 +1,58 @@
 <!DOCTYPE html>
-<html lang='vi'>
+<html lang="en">
 <head>
-  <meta charset='UTF-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-  <title>Upload Video - VideoHub</title>
-  <link rel='stylesheet' href='css/style.css'>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload - VideoHub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-  <nav class='navbar'>
-    <a href='/' class='nav-brand'>&#9654; VideoHub</a>
-  </nav>
- 
-  <main class='container' style='max-width:640px'>
-    <h2 class='section-title'>Upload Video Moi</h2>
- 
-    <div id='dropZone' class='drop-zone'>
-      <div class='drop-icon'>&#127910;</div>
-      <p>Keo tha video vao day</p>
-      <p>hoac <label for='fileInput' class='link'>chon file tu may tinh</label></p>
-      <p class='drop-hint'>Ho tro: MP4, AVI, MOV, MKV, WEBM - Toi da 500MB</p>
-      <input type='file' id='fileInput' accept='video/*' hidden>
+<nav class="nav">
+  <a href="/videohub/" class="nav-logo">&#9654; VideoHub</a>
+  <a href="/videohub/" class="nav-back">&#8592; Back</a>
+</nav>
+
+<main class="page" style="max-width:580px">
+  <h1 class="page-title" style="margin-bottom:24px">Upload Video</h1>
+
+  <div id="dropZone" class="drop-zone">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:.4">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <p>Drop video here, or <label for="fileIn" class="link">browse</label></p>
+    <p class="hint">MP4 &middot; MKV &middot; AVI &middot; MOV &middot; WEBM &mdash; max 500 MB</p>
+    <input type="file" id="fileIn" accept="video/*" style="display:none">
+  </div>
+
+  <div id="fileInfo" class="file-info" style="display:none"></div>
+
+  <div class="field">
+    <label>Title <span style="color:#c82b2b">*</span></label>
+    <input type="text" id="titleIn" placeholder="Enter video title..." maxlength="255">
+  </div>
+  <div class="field">
+    <label>Description</label>
+    <textarea id="descIn" rows="3" placeholder="Optional description..."></textarea>
+  </div>
+
+  <div id="progWrap" style="display:none">
+    <div class="prog-bar">
+      <div id="progFill" class="prog-fill"></div>
     </div>
- 
-    <div id='fileInfo' class='file-info' hidden></div>
- 
-    <div class='form-group'>
-      <label>Tieu de video *</label>
-      <input type='text' id='titleInput' placeholder='Nhap tieu de...' maxlength='255'>
+    <div class="prog-meta">
+      <span id="progPct">0%</span>
+      <span id="progSpd"></span>
+      <span id="progEta"></span>
     </div>
- 
-    <div class='form-group'>
-      <label>Mo ta (tuy chon)</label>
-      <textarea id='descInput' placeholder='Mo ta noi dung video...' rows='3'></textarea>
-    </div>
- 
-    <div id='progressWrap' hidden>
-      <div class='progress-track'>
-        <div id='progressFill' class='progress-fill'></div>
-      </div>
-      <div class='progress-info'>
-        <span id='progressPct'>0%</span>
-        <span id='progressSpeed'></span>
-        <span id='progressEta'></span>
-      </div>
-    </div>
- 
-    <button id='uploadBtn' class='btn btn-primary btn-block'>Upload Video</button>
-    <div id='statusMsg' class='status-msg' hidden></div>
-  </main>
- 
-  <script src='js/upload.js'></script>
+  </div>
+
+  <button id="upBtn" class="btn btn-full">Upload Video</button>
+  <div id="msg" class="msg" style="display:none"></div>
+</main>
+
+<script src="js/upload.js"></script>
 </body>
 </html>
