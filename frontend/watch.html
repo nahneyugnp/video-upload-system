@@ -1,61 +1,140 @@
 <!DOCTYPE html>
-<html lang='vi'>
+<html lang="en">
 <head>
-  <meta charset='UTF-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-  <title>Xem Video - VideoHub</title>
-  <link rel='stylesheet' href='css/style.css'>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch - VideoHub</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-  <nav class='navbar'>
-    <a href='/' class='nav-brand'>&#9654; VideoHub</a>
-  </nav>
- 
-  <main class='container'>
-    <div class='watch-layout'>
-      <div class='player-section'>
-        <div id='playerWrap' class='player-wrap'>
-          <video id='videoPlayer' controls preload='metadata'>
-            Trinh duyet cua ban khong ho tro HTML5 video.
-          </video>
-        </div>
-        <div id='videoMeta' class='video-meta'>
-          <h1 id='videoTitle' class='video-title'>Dang tai...</h1>
-          <div class='meta-row'>
-            <span id='videoViews'></span>
-            <span id='videoDate'></span>
-          </div>
-          <p id='videoDesc' class='video-desc'></p>
-        </div>
-      </div>
+<nav class="nav">
+  <a href="/videohub/" class="nav-logo">&#9654; VideoHub</a>
+  <a href="/videohub/" class="nav-back">&#8592; All Videos</a>
+</nav>
+
+<main class="page watch-page">
+  <div class="player-wrap">
+    <video id="player" controls preload="metadata"></video>
+    <div class="quality-bar" id="qualityBar"></div>
+  </div>
+
+  <div class="video-info">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+      <h1 id="vTitle" class="watch-title" style="margin-bottom: 0;">Loading&hellip;</h1>
+      <button onclick="deleteVideo()" class="btn" style="color: var(--err); border-color: var(--err-bd); background: var(--err-bg); padding: 4px 10px; font-size: 0.8rem;">
+        Delete
+      </button>
     </div>
-  </main>
- 
-  <script>
-    const params  = new URLSearchParams(location.search);
-    const videoId = params.get('id');
- 
-    if (!videoId) {
-      document.body.innerHTML = '<p style="padding:40px;color:#fff">Khong tim thay video. <a href="/">Quay lai trang chu</a></p>';
-    } else {
-      fetch('/api/videos/detail.php?id=' + videoId)
-        .then(r => r.json())
-        .then(data => {
-          if (!data.success) throw new Error(data.message);
-          const v = data.video;
-          document.title = v.title + ' - VideoHub';
-          document.getElementById('videoTitle').textContent = v.title;
-          document.getElementById('videoViews').textContent = Number(v.views).toLocaleString() + ' luot xem';
-          document.getElementById('videoDate').textContent = new Date(v.created_at).toLocaleDateString('vi-VN');
-          document.getElementById('videoDesc').textContent = v.description || '';
-          const player = document.getElementById('videoPlayer');
-          player.src = '/api/videos/stream.php?id=' + videoId;
-          if (v.thumbnail_path) player.poster = '/' + v.thumbnail_path;
-        })
-        .catch(err => {
-          document.getElementById('videoTitle').textContent = 'Loi: ' + err.message;
-        });
+    <div class="watch-meta-row">
+      <span id="vMeta" class="watch-meta"></span>
+      <span id="nativeBadge" class="native-tag"></span>
+    </div>
+    <p id="vDesc" class="watch-desc"></p>
+  </div>
+</main>
+
+<script>
+const videoId = new URLSearchParams(location.search).get("id");
+const player  = document.getElementById("player");
+let currentQuality = null;
+
+if (!videoId) {
+  document.getElementById("vTitle").textContent = "Video not found";
+} else {
+  Promise.all([
+    fetch(`/videohub/api/videos/detail.php?id=${videoId}`).then(r => r.json()),
+    fetch(`/videohub/api/videos/renditions.php?id=${videoId}`).then(r => r.json()),
+  ]).then(([detailData, rendData]) => {
+    if (!detailData.success) throw new Error(detailData.message);
+    const v = detailData.video;
+
+    document.title = v.title + " - VideoHub";
+    document.getElementById("vTitle").textContent = v.title;
+    document.getElementById("vMeta").textContent = 
+      Number(v.views).toLocaleString() + " views · " + 
+      new Date(v.created_at).toLocaleDateString("en-US", {year:"numeric", month:"short", day:"numeric"});
+    document.getElementById("vDesc").textContent = v.description || "";
+
+    if (rendData.native_height > 0) {
+      document.getElementById("nativeBadge").textContent = "Original: " + rendData.native_height + "p";
     }
-  </script>
+
+    player.src = "/videohub/api/videos/stream.php?id=" + videoId;
+    if (v.thumb_path) player.poster = "/videohub/" + v.thumb_path;
+
+    if (rendData.renditions && rendData.renditions.length > 1) {
+      renderQualityBar(rendData.renditions);
+    }
+  }).catch(e => {
+    document.getElementById("vTitle").textContent = "Error: " + e.message;
+  });
+}
+
+function renderQualityBar(renditions) {
+  const bar = document.getElementById("qualityBar");
+  bar.innerHTML = `<span class='q-label'>Quality:</span>`;
+
+  const autoBtn = document.createElement("button");
+  autoBtn.className = "q-btn active";
+  autoBtn.textContent = "Auto";
+  autoBtn.dataset.quality = "";
+  autoBtn.onclick = () => switchQuality("", autoBtn);
+  bar.appendChild(autoBtn);
+
+  renditions.forEach(r => {
+    const btn = document.createElement("button");
+    btn.className = "q-btn";
+    btn.textContent = r.label;
+    btn.dataset.quality = r.label;
+    btn.title = `${r.width}x${r.height} | ${r.bitrate} kbps | ` + (r.file_size ? (r.file_size/1024/1024).toFixed(1) + " MB" : "");
+    btn.onclick = () => switchQuality(r.label, btn);
+    bar.appendChild(btn);
+  });
+}
+
+function switchQuality(quality, clickedBtn) {
+  if (quality === currentQuality) return;
+
+  const savedTime = player.currentTime;
+  const wasPaused = player.paused;
+
+  document.querySelectorAll(".q-btn").forEach(b => b.classList.remove("active"));
+  clickedBtn.classList.add("active");
+  currentQuality = quality;
+
+  let src = "/videohub/api/videos/stream.php?id=" + videoId;
+  if (quality) src += "&quality=" + quality;
+
+  player.src = src;
+  player.addEventListener("loadedmetadata", function onMeta() {
+    player.currentTime = savedTime;
+    if (!wasPaused) player.play();
+    player.removeEventListener("loadedmetadata", onMeta);
+  });
+  player.load();
+}
+
+async function deleteVideo() {
+  if (!confirm("Are you sure you want to delete this video?")) return;
+
+  try {
+    const res = await fetch("/videohub/api/videos/delete.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: videoId })
+    }).then(r => r.json());
+
+    if (res.success) {
+      alert("Deleted successfully!");
+      window.location.href = "/videohub/";
+    } else {
+      alert("Error: " + res.message);
+    }
+  } catch (error) {
+    alert("Connection error!");
+  }
+}
+</script>
 </body>
 </html>
